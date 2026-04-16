@@ -7,19 +7,44 @@ import path from "node:path";
 import os from "node:os";
 import readline from "node:readline";
 
-let cancelRequested = false;
+let rawModeWasActive = false;
 
 function setupEscHandler() {
 	if (process.stdin.isTTY) {
 		readline.emitKeypressEvents(process.stdin);
 		process.stdin.setRawMode(true);
+		rawModeWasActive = true;
 		process.stdin.on("keypress", (str, key) => {
 			if (key.name === "escape") {
-				cancelRequested = true;
 				process.exit(0);
 			}
 		});
 	}
+}
+
+function cleanup() {
+	if (rawModeWasActive && process.stdin.isTTY) {
+		process.stdin.setRawMode(false);
+	}
+}
+
+process.on("exit", cleanup);
+process.on("SIGINT", () => {
+	cleanup();
+	process.exit(0);
+});
+process.on("SIGTERM", () => {
+	cleanup();
+	process.exit(0);
+});
+
+function isValidPid(pid) {
+	return pid && /^\d+$/.test(pid) && Number(pid) > 0 && Number(pid) < 100000000;
+}
+
+function isValidPort(port) {
+	const p = Number(port);
+	return !isNaN(p) && p > 0 && p <= 65535;
 }
 
 function getProcessDetails(pid) {
@@ -122,10 +147,12 @@ function parseSsOutput(output, proto) {
 			const pidMatch = processInfo.match(/pid=(\d+)/);
 			const nameMatch = processInfo.match(/"([^"]*)"/);
 
-			if (pidMatch) pid = pidMatch[1];
-			if (nameMatch) processName = nameMatch[1];
+if (pidMatch) pid = pidMatch[1];
+		if (nameMatch) processName = nameMatch[1];
 
-			return { host, port, pid, processName, proto };
+		if (!isValidPort(Number(port)) || !isValidPid(pid)) return null;
+
+		return { host, port, pid, processName, proto };
 		})
 		.filter(Boolean);
 }
@@ -144,6 +171,7 @@ function getListeningPorts() {
 }
 
 function killByPid(pid) {
+	if (!isValidPid(pid)) return false;
 	try {
 		process.kill(Number(pid), "SIGKILL");
 		return true;
@@ -153,6 +181,8 @@ function killByPid(pid) {
 }
 
 function killByPort(port, proto) {
+	if (!isValidPort(port)) return false;
+	if (!["tcp", "udp"].includes(proto.toLowerCase())) return false;
 	try {
 		execSync(`fuser -k ${port}/${proto.toLowerCase()} 2>/dev/null`, {
 			encoding: "utf8",
