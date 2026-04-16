@@ -16,19 +16,19 @@ CLI interativo para fechar portas de processos no Linux com estilo.
 ## 🚀 Instalação
 
 ```bash
-npm install -g port-killer
+npm install -g pk-port
 ```
 
 Ou use diretamente com `npx`:
 
 ```bash
-npx port-killer
+npx pk-port
 ```
 
 ## 📦 Upgrade
 
 ```bash
-npm update -g port-killer
+npm update -g pk-port
 ```
 
 ## 💡 Uso

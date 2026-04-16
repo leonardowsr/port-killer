@@ -1,5 +1,5 @@
 {
-  "name": "port-killer",
+  "name": "pk-port",
   "version": "1.0.0",
   "description": "CLI interativo pra fechar portas",
   "bin": {
