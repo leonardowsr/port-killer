@@ -307,7 +307,7 @@ async function main() {
 
 	const selected = await checkbox({
 		message:
-			"Selecione as portas pra fechar (space = marcar, enter = confirmar)",
+			"Selecione as portas pra fechar (↑↓ navega • space seleciona • enter confirma • esc sai)",
 		choices,
 		pageSize: 15,
 		loop: false,
