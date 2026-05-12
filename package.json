@@ -1,7 +1,7 @@
 {
   "name": "pk-port",
-  "version": "1.0.0",
-  "description": "CLI interativo pra fechar portas",
+  "version": "1.1.0",
+  "description": "Agent-friendly CLI pra fechar portas no Linux",
   "bin": {
     "pk": "./cli.mjs"
   },

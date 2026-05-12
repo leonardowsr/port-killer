@@ -52,9 +52,7 @@ function getProcessDetails(pid) {
 	try {
 		const cmd = execSync(
 			`ps -p ${pid} -o etime=,comm=,args= --no-headers 2>/dev/null`,
-			{
-				encoding: "utf8",
-			},
+			{ encoding: "utf8" },
 		).trim();
 		if (!cmd) return {};
 		const parts = cmd.split(/\s+/);
@@ -147,12 +145,12 @@ function parseSsOutput(output, proto) {
 			const pidMatch = processInfo.match(/pid=(\d+)/);
 			const nameMatch = processInfo.match(/"([^"]*)"/);
 
-if (pidMatch) pid = pidMatch[1];
-		if (nameMatch) processName = nameMatch[1];
+			if (pidMatch) pid = pidMatch[1];
+			if (nameMatch) processName = nameMatch[1];
 
-		if (!isValidPort(Number(port)) || !isValidPid(pid)) return null;
+			if (!isValidPort(Number(port)) || !isValidPid(pid)) return null;
 
-		return { host, port, pid, processName, proto };
+			return { host, port, pid, processName, proto };
 		})
 		.filter(Boolean);
 }
@@ -168,6 +166,12 @@ function getListeningPorts() {
 		results.push(...parseSsOutput(udp, "UDP"));
 	} catch {}
 	return results;
+}
+
+function findPorts(portNum, ports) {
+	return ports.filter(
+		(p) => Number(p.port) === Number(portNum),
+	);
 }
 
 function killByPid(pid) {
@@ -193,6 +197,14 @@ function killByPort(port, proto) {
 	}
 }
 
+function killEntry(p) {
+	const ok = p.pid ? killByPid(p.pid) : false;
+	if (ok) return { method: "pid" };
+	const fb = killByPort(p.port, p.proto);
+	if (fb) return { method: "fuser" };
+	return null;
+}
+
 function formatUptime(etime) {
 	if (!etime) return "";
 	return etime
@@ -202,7 +214,130 @@ function formatUptime(etime) {
 		.replace(/:/, "m ");
 }
 
-async function main() {
+function parseArgs() {
+	const args = process.argv.slice(2);
+	const flags = { showAll: false, list: false, json: false, yes: false, pid: null, ports: [] };
+
+	for (let i = 0; i < args.length; i++) {
+		const arg = args[i];
+		if (arg === "--all" || arg === "-a") flags.showAll = true;
+		else if (arg === "--list" || arg === "-l") flags.list = true;
+		else if (arg === "--json") flags.json = true;
+		else if (arg === "--yes" || arg === "-y") flags.yes = true;
+		else if (arg === "--pid") {
+			i++;
+			flags.pid = args[i] || null;
+		} else if (arg === "--help" || arg === "-h") {
+			printHelp();
+			process.exit(0);
+		} else if (!arg.startsWith("-") && isValidPort(arg)) {
+			flags.ports.push(Number(arg));
+		}
+	}
+
+	return flags;
+}
+
+function printHelp() {
+	console.log(`
+  🔌 Port Killer CLI — Agent-Friendly
+
+  USO:
+    pk                          Modo interativo (checkbox)
+    pk 3000                     Mata porta 3000 (TCP+UDP)
+    pk 3000 3001 8080           Mata multiplas portas
+    pk --list                   Lista portas e sai
+    pk --json                   Lista portas em JSON
+    pk --list --json            Lista portas em JSON, sem matar
+    pk --pid 1234               Mata processo pelo PID
+    pk -y 3000                  Mata sem confirmacao (headless)
+
+  FLAGS:
+    -a, --all     Mostrar portas de sistema (< 1000)
+    -l, --list    Apenas listar, sem matar
+    --json        Output em JSON (maquina legivel)
+    -y, --yes     Pular confirmacao
+    --pid <n>     Matar por PID
+    -h, --help    Mostrar ajuda
+
+  AGENTS:
+    pk --json              → JSON dos processos escutando
+    pk --json --list       → JSON sem matar
+    pk 3000 --yes          → Mata 3000 sem prompt
+    pk --pid 1234 --yes    → Mata PID 1234 sem prompt
+`);
+}
+
+function enrichPorts(ports) {
+	const unique = [];
+	const seen = new Set();
+	for (const p of ports) {
+		const key = `${p.proto}:${p.host}:${p.port}`;
+		if (!seen.has(key)) {
+			seen.add(key);
+			unique.push(p);
+		}
+	}
+	unique.sort((a, b) => Number(a.port) - Number(b.port));
+
+	return unique.map((p) => {
+		const details = getProcessDetails(p.pid);
+		const cwd = getProcessCwd(p.pid);
+		const project = extractProjectName(details.fullCmd, cwd);
+		const cls = classifyPort(p.port, p.processName);
+		return { ...p, ...details, cwd, project, cls };
+	});
+}
+
+function formatJson(enriched) {
+	return JSON.stringify(
+		enriched.map((p) => ({
+			port: Number(p.port),
+			proto: p.proto,
+			pid: Number(p.pid),
+			process: p.processName || null,
+			project: p.project || null,
+			cwd: p.cwd || null,
+			uptime: p.etime || null,
+			command: p.fullCmd || null,
+		})),
+		null,
+		2,
+	);
+}
+
+function printTableHeader() {
+	const header = [
+		chalk.bold.gray(" PORTA "),
+		chalk.bold.gray("PROTO"),
+		chalk.bold.gray("PROCESSO      "),
+		chalk.bold.gray("PROJETO/DIR       "),
+		chalk.bold.gray("TEMPO"),
+	].join(" ");
+	console.log(header);
+	console.log(chalk.dim("─".repeat(70)));
+}
+
+function printPortRow(p) {
+	const portLabel = p.cls.color(p.port.padEnd(6));
+	const protoLabel = chalk.dim(p.proto.padEnd(4));
+	const nameLabel = p.processName
+		? p.cls.color(p.processName.padEnd(14))
+		: chalk.dim("—".padEnd(14));
+	const projectLabel = p.project
+		? chalk.bold.white(p.project.padEnd(18))
+		: p.cwd
+			? chalk.gray(shortenPath(p.cwd, 18).padEnd(18))
+			: chalk.dim("—".padEnd(18));
+	const uptimeStr = p.etime ? chalk.dim(formatUptime(p.etime).padEnd(12)) : "";
+	console.log(`${portLabel} ${protoLabel} ${nameLabel} ${projectLabel} ${uptimeStr}`);
+}
+
+function getMatchingPorts(portNum, enriched) {
+	return enriched.filter((p) => Number(p.port) === portNum);
+}
+
+async function interactiveMode() {
 	setupEscHandler();
 	const showAll = process.argv.includes("--all") || process.argv.includes("-a");
 
@@ -233,32 +368,12 @@ async function main() {
 		process.exit(0);
 	}
 
-	const uniquePorts = [];
-	const seen = new Set();
-	for (const p of ports) {
-		const key = `${p.proto}:${p.host}:${p.port}`;
-		if (!seen.has(key)) {
-			seen.add(key);
-			uniquePorts.push(p);
-		}
-	}
-
-	uniquePorts.sort((a, b) => Number(a.port) - Number(b.port));
-
-	const enriched = uniquePorts.map((p) => {
-		const details = getProcessDetails(p.pid);
-		const cwd = getProcessCwd(p.pid);
-		const project = extractProjectName(details.fullCmd, cwd);
-		const cls = classifyPort(p.port, p.processName);
-		return { ...p, ...details, cwd, project, cls };
-	});
+	const enriched = enrichPorts(ports);
 
 	const tcpCount = enriched.filter((p) => p.proto === "TCP").length;
 	const udpCount = enriched.filter((p) => p.proto === "UDP").length;
 	console.log(
-		chalk.dim(
-			`  ${tcpCount} TCP | ${udpCount} UDP | ${enriched.length} total\n`,
-		),
+		chalk.dim(`  ${tcpCount} TCP | ${udpCount} UDP | ${enriched.length} total\n`),
 	);
 
 	const choices = enriched.map((p) => {
@@ -272,9 +387,9 @@ async function main() {
 			: p.cwd
 				? chalk.gray(shortenPath(p.cwd, 18).padEnd(18))
 				: chalk.dim("—".padEnd(18));
-		const uptime = p.etime ? chalk.dim(formatUptime(p.etime).padEnd(12)) : "";
+		const uptimeStr = p.etime ? chalk.dim(formatUptime(p.etime).padEnd(12)) : "";
 
-		const label = `${portLabel} ${protoLabel} ${nameLabel} ${projectLabel} ${uptime}`;
+		const label = `${portLabel} ${protoLabel} ${nameLabel} ${projectLabel} ${uptimeStr}`;
 
 		let desc = "";
 		if (p.fullCmd) {
@@ -295,15 +410,7 @@ async function main() {
 		};
 	});
 
-	const header = [
-		chalk.bold.gray(" PORTA "),
-		chalk.bold.gray("PROTO"),
-		chalk.bold.gray("PROCESSO      "),
-		chalk.bold.gray("PROJETO/DIR       "),
-		chalk.bold.gray("TEMPO"),
-	].join(" ");
-	console.log(header);
-	console.log(chalk.dim("─".repeat(70)));
+	printTableHeader();
 
 	const selected = await checkbox({
 		message:
@@ -333,30 +440,22 @@ async function main() {
 		process.exit(0);
 	}
 
+	await executeKill(selected);
+}
+
+async function executeKill(targets) {
 	console.log("");
 	let killed = 0;
 	let failed = 0;
 
-	for (const p of selected) {
-		const ok = p.pid ? killByPid(p.pid) : killByPort(p.port, p.proto);
-		if (ok) {
-			console.log(
-				`  ${chalk.green("✔")} ${chalk.bold(p.port)} (${p.proto}) fechada`,
-			);
+	for (const p of targets) {
+		const result = killEntry(p);
+		if (result) {
+			console.log(`  ${chalk.green("✔")} ${chalk.bold(p.port)} (${p.proto}) fechada`);
 			killed++;
 		} else {
-			const fb = killByPort(p.port, p.proto);
-			if (fb) {
-				console.log(
-					`  ${chalk.green("✔")} ${chalk.bold(p.port)} (${p.proto}) fechada (via fuser)`,
-				);
-				killed++;
-			} else {
-				console.log(
-					`  ${chalk.red("✘")} Falha ao fechar ${chalk.bold(p.port)} (${p.proto})`,
-				);
-				failed++;
-			}
+			console.log(`  ${chalk.red("✘")} Falha ao fechar ${chalk.bold(p.port)} (${p.proto})`);
+			failed++;
 		}
 	}
 
@@ -365,6 +464,140 @@ async function main() {
 			(failed ? chalk.red(` | ❌ ${failed} falha(s)`) : "") +
 			"\n",
 	);
+
+	return { killed, failed };
+}
+
+function printKillSummary(results) {
+	const { killed, failed } = results;
+	console.log(
+		chalk.bold(`\n  ✅ ${killed} fechada(s)`) +
+			(failed ? chalk.red(` | ❌ ${failed} falha(s)`) : "") +
+			"\n",
+	);
+}
+
+async function main() {
+	const flags = parseArgs();
+
+	const hasNonInteractiveArgs =
+		flags.ports.length > 0 || flags.pid || flags.list || flags.json;
+
+	if (!hasNonInteractiveArgs) {
+		await interactiveMode();
+		return;
+	}
+
+	let ports = getListeningPorts();
+
+	if (!flags.showAll) {
+		ports = ports.filter((p) => Number(p.port) >= 1000);
+	}
+
+	if (ports.length === 0) {
+		if (flags.json) {
+			console.log(JSON.stringify([]));
+		} else {
+			console.log(chalk.yellow("Nenhuma porta aberta encontrada."));
+		}
+		process.exit(0);
+	}
+
+	const enriched = enrichPorts(ports);
+
+	if (flags.list || (flags.json && flags.ports.length === 0 && !flags.pid)) {
+		if (flags.json) {
+			console.log(formatJson(enriched));
+		} else {
+			const tcpCount = enriched.filter((p) => p.proto === "TCP").length;
+			const udpCount = enriched.filter((p) => p.proto === "UDP").length;
+			console.log(chalk.dim(`  ${tcpCount} TCP | ${udpCount} UDP | ${enriched.length} total\n`));
+			printTableHeader();
+			for (const p of enriched) {
+				printPortRow(p);
+			}
+		}
+		process.exit(0);
+	}
+
+	if (flags.pid) {
+		const pid = Number(flags.pid);
+		if (!isValidPid(pid)) {
+			console.error(chalk.red(`PID invalido: ${flags.pid}`));
+			process.exit(1);
+		}
+
+		const match = enriched.find((p) => Number(p.pid) === pid);
+		if (!match) {
+			console.error(chalk.red(`Nenhum processo escutando porta com PID ${pid}`));
+			process.exit(1);
+		}
+
+		if (!flags.yes) {
+			console.log(chalk.bold(`\n  ⚠️  Vai matar PID ${pid} (${match.processName}, porta ${match.port})\n`));
+			const sure = await confirm({ message: "Confirmar?", default: false });
+			if (!sure) {
+				console.log(chalk.yellow("\n  Cancelado.\n"));
+				process.exit(0);
+			}
+		}
+
+		const ok = killByPid(pid);
+		if (ok) {
+			console.log(chalk.green(`\n  ✔ PID ${pid} morto (porta ${match.port})\n`));
+		} else {
+			console.log(chalk.red(`\n  ✘ Falha ao matar PID ${pid}\n`));
+		}
+		process.exit(ok ? 0 : 1);
+	}
+
+	if (flags.ports.length > 0) {
+		const targets = [];
+		const notFound = [];
+
+		for (const portNum of flags.ports) {
+			const matches = getMatchingPorts(portNum, enriched);
+			if (matches.length === 0) {
+				notFound.push(portNum);
+			} else {
+				targets.push(...matches);
+			}
+		}
+
+		if (notFound.length > 0 && targets.length === 0) {
+			console.error(chalk.red(`Nenhuma porta aberta: ${notFound.join(", ")}`));
+			process.exit(1);
+		}
+
+		if (notFound.length > 0) {
+			console.warn(chalk.yellow(`Portas nao encontradas: ${notFound.join(", ")}`));
+		}
+
+		if (!flags.yes) {
+			console.log(chalk.bold(`\n  ⚠️  Vai fechar ${targets.length} porta(s):\n`));
+			for (const p of targets) {
+				printPortRow(p);
+			}
+			const sure = await confirm({ message: "Confirmar?", default: false });
+			if (!sure) {
+				console.log(chalk.yellow("\n  Cancelado.\n"));
+				process.exit(0);
+			}
+		}
+
+		const deduped = [];
+		const seenPids = new Set();
+		for (const p of targets) {
+			const key = `${p.port}:${p.proto}:${p.pid}`;
+			if (!seenPids.has(key)) {
+				seenPids.add(key);
+				deduped.push(p);
+			}
+		}
+
+		const results = await executeKill(deduped);
+		process.exit(results.failed > 0 ? 1 : 0);
+	}
 }
 
 main().catch((err) => {
