@@ -153,6 +153,33 @@ for p in ports:
         subprocess.run(["pk", "3000", "--yes"])
 ```
 
+## 🤖 Agent Skill Install
+
+Install `pk` as a skill in AI agents (OpenCode, Claude Code, Aider, Cursor, Windsurf, etc.) so they know how to use it:
+
+```bash
+pk --agent-install                 # Auto-discover agents and install interactively
+pk --agent-install --path ~/my-agent/skills/  # Install to custom path
+pk --agent-install --dry-run       # Simulate without writing files
+pk --agent-uninstall               # Remove skill from agents
+pk --agent-uninstall --dry-run     # Simulate removal
+```
+
+The skill file (`port-killer.md`) is written in English and contains all CLI commands, flags, JSON schema, exit codes, and integration examples in Bash, Node.js, and Python.
+
+### Searched Paths
+
+| Agent | Project | User |
+|-------|---------|------|
+| OpenCode | `.opencode/skills/` | `~/.config/opencode/skills/` |
+| Claude Code | `.claude/skills/` | `~/.claude/skills/` |
+| Generic Agents | `.agents/skills/` | `~/.agents/skills/` |
+| Aider | — | `~/.aider/skills/` |
+| Cursor | — | `~/.cursor/skills/` |
+| Windsurf | — | `~/.windsurf/skills/` |
+
+If no directories are found, you will be prompted for a custom path.
+
 ## 📋 Requisitos
 
 - Linux (comando `ss` disponivel)

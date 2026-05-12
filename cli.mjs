@@ -6,6 +6,7 @@ import chalk from "chalk";
 import path from "node:path";
 import os from "node:os";
 import readline from "node:readline";
+import { agentInstall, agentUninstall } from "./installator.mjs";
 
 let rawModeWasActive = false;
 
@@ -216,7 +217,7 @@ function formatUptime(etime) {
 
 function parseArgs() {
 	const args = process.argv.slice(2);
-	const flags = { showAll: false, list: false, json: false, yes: false, pid: null, ports: [] };
+  const flags = { showAll: false, list: false, json: false, yes: false, pid: null, ports: [], agentInstall: false, agentUninstall: false, dryRun: false, agentPath: null };
 
 	for (let i = 0; i < args.length; i++) {
 		const arg = args[i];
@@ -227,10 +228,19 @@ function parseArgs() {
 		else if (arg === "--pid") {
 			i++;
 			flags.pid = args[i] || null;
-		} else if (arg === "--help" || arg === "-h") {
-			printHelp();
-			process.exit(0);
-		} else if (!arg.startsWith("-") && isValidPort(arg)) {
+} else if (arg === "--help" || arg === "-h") {
+      printHelp();
+      process.exit(0);
+    } else if (arg === "--agent-install") {
+      flags.agentInstall = true;
+    } else if (arg === "--agent-uninstall") {
+      flags.agentUninstall = true;
+    } else if (arg === "--dry-run") {
+      flags.dryRun = true;
+    } else if (arg === "--path") {
+      i++;
+      flags.agentPath = args[i] || null;
+    } else if (!arg.startsWith("-") && isValidPort(arg)) {
 			flags.ports.push(Number(arg));
 		}
 	}
@@ -239,33 +249,43 @@ function parseArgs() {
 }
 
 function printHelp() {
-	console.log(`
-  🔌 Port Killer CLI — Agent-Friendly
+  console.log(`
+ 🔌 Port Killer CLI — Agent-Friendly
 
-  USO:
-    pk                          Modo interativo (checkbox)
-    pk 3000                     Mata porta 3000 (TCP+UDP)
-    pk 3000 3001 8080           Mata multiplas portas
-    pk --list                   Lista portas e sai
-    pk --json                   Lista portas em JSON
-    pk --list --json            Lista portas em JSON, sem matar
-    pk --pid 1234               Mata processo pelo PID
-    pk -y 3000                  Mata sem confirmacao (headless)
+ USO:
+ pk                                 Modo interativo (checkbox)
+ pk 3000                            Mata porta 3000 (TCP+UDP)
+ pk 3000 3001 8080                  Mata multiplas portas
+ pk --list                          Lista portas e sai
+ pk --json                          Lista portas em JSON
+ pk --list --json                   Lista portas em JSON, sem matar
+ pk --pid 1234                      Mata processo pelo PID
+ pk -y 3000                         Mata sem confirmacao (headless)
+ pk --agent-install                 Instala skill port-killer em agents
+ pk --agent-install --path <dir>    Instala em diretorio customizado
+ pk --agent-install --dry-run       Simula instalacao sem escrever
+ pk --agent-uninstall               Remove skill port-killer de agents
+ pk --agent-uninstall --dry-run     Simula remocao sem apagar
 
-  FLAGS:
-    -a, --all     Mostrar portas de sistema (< 1000)
-    -l, --list    Apenas listar, sem matar
-    --json        Output em JSON (maquina legivel)
-    -y, --yes     Pular confirmacao
-    --pid <n>     Matar por PID
-    -h, --help    Mostrar ajuda
+ FLAGS:
+ -a, --all                          Mostrar portas de sistema (< 1000)
+ -l, --list                         Apenas listar, sem matar
+ --json                             Output em JSON (maquina legivel)
+ -y, --yes                          Pular confirmacao
+ --pid <n>                          Matar por PID
+ --agent-install                    Instalar skill em AI agents
+ --agent-uninstall                  Remover skill de AI agents
+ --dry-run                          Simular sem escrever/apagar
+ --path <dir>                       Path customizado para skill
+ -h, --help                         Mostrar ajuda
 
-  AGENTS:
-    pk --json              → JSON dos processos escutando
-    pk --json --list       → JSON sem matar
-    pk 3000 --yes          → Mata 3000 sem prompt
-    pk --pid 1234 --yes    → Mata PID 1234 sem prompt
-`);
+ AGENTS:
+ pk --json                          → JSON dos processos escutando
+ pk --json --list                   → JSON sem matar
+ pk 3000 --yes                      → Mata 3000 sem prompt
+ pk --pid 1234 --yes                → Mata PID 1234 sem prompt
+ pk --agent-install                 → Instala skill port-killer
+ `);
 }
 
 function enrichPorts(ports) {
@@ -478,10 +498,20 @@ function printKillSummary(results) {
 }
 
 async function main() {
-	const flags = parseArgs();
+  const flags = parseArgs();
 
-	const hasNonInteractiveArgs =
-		flags.ports.length > 0 || flags.pid || flags.list || flags.json;
+  if (flags.agentInstall) {
+    await agentInstall(flags.agentPath, flags.dryRun, flags.yes);
+    return;
+  }
+
+  if (flags.agentUninstall) {
+    await agentUninstall(flags.agentPath, flags.dryRun, flags.yes);
+    return;
+  }
+
+  const hasNonInteractiveArgs =
+    flags.ports.length > 0 || flags.pid || flags.list || flags.json;
 
 	if (!hasNonInteractiveArgs) {
 		await interactiveMode();
