@@ -252,40 +252,40 @@ function printHelp() {
   console.log(`
  🔌 Port Killer CLI — Agent-Friendly
 
- USO:
- pk                                 Modo interativo (checkbox)
- pk 3000                            Mata porta 3000 (TCP+UDP)
- pk 3000 3001 8080                  Mata multiplas portas
- pk --list                          Lista portas e sai
- pk --json                          Lista portas em JSON
- pk --list --json                   Lista portas em JSON, sem matar
- pk --pid 1234                      Mata processo pelo PID
- pk -y 3000                         Mata sem confirmacao (headless)
- pk --agent-install                 Instala skill port-killer em agents
- pk --agent-install --path <dir>    Instala em diretorio customizado
- pk --agent-install --dry-run       Simula instalacao sem escrever
- pk --agent-uninstall               Remove skill port-killer de agents
- pk --agent-uninstall --dry-run     Simula remocao sem apagar
+ USAGE:
+ pk                                 Interactive mode (checkbox)
+ pk 3000                            Kill port 3000 (TCP+UDP)
+ pk 3000 3001 8080                  Kill multiple ports
+ pk --list                          List ports and exit
+ pk --json                          List ports as JSON
+ pk --list --json                   List ports as JSON, no kill
+ pk --pid 1234                      Kill process by PID
+ pk -y 3000                         Kill without confirmation (headless)
+ pk --agent-install                 Install port-killer skill in agents
+ pk --agent-install --path <dir>    Install in custom directory
+ pk --agent-install --dry-run       Simulate installation without writing
+ pk --agent-uninstall               Remove port-killer skill from agents
+ pk --agent-uninstall --dry-run     Simulate removal without deleting
 
  FLAGS:
- -a, --all                          Mostrar portas de sistema (< 1000)
- -l, --list                         Apenas listar, sem matar
- --json                             Output em JSON (maquina legivel)
- -y, --yes                          Pular confirmacao
- --pid <n>                          Matar por PID
- --agent-install                    Instalar skill em AI agents
- --agent-uninstall                  Remover skill de AI agents
- --dry-run                          Simular sem escrever/apagar
- --path <dir>                       Path customizado para skill
- -h, --help                         Mostrar ajuda
+ -a, --all                          Show system ports (< 1000)
+ -l, --list                         List only, no kill
+ --json                             JSON output (machine-readable)
+ -y, --yes                          Skip confirmation
+ --pid <n>                          Kill by PID
+ --agent-install                    Install skill in AI agents
+ --agent-uninstall                  Remove skill from AI agents
+ --dry-run                          Simulate without writing/deleting
+ --path <dir>                       Custom skill path
+ -h, --help                         Show help
 
  AGENTS:
- pk --json                          → JSON dos processos escutando
- pk --json --list                   → JSON sem matar
- pk 3000 --yes                      → Mata 3000 sem prompt
- pk --pid 1234 --yes                → Mata PID 1234 sem prompt
- pk --agent-install                 → Instala skill port-killer
- `);
+ pk --json                          → JSON of listening processes
+ pk --json --list                   → JSON without killing
+ pk 3000 --yes                      → Kill 3000 without prompt
+ pk --pid 1234 --yes                → Kill PID 1234 without prompt
+ pk --agent-install                 → Install port-killer skill
+  `);
 }
 
 function enrichPorts(ports) {
@@ -330,9 +330,9 @@ function printTableHeader() {
 	const header = [
 		chalk.bold.gray(" PORTA "),
 		chalk.bold.gray("PROTO"),
-		chalk.bold.gray("PROCESSO      "),
-		chalk.bold.gray("PROJETO/DIR       "),
-		chalk.bold.gray("TEMPO"),
+		chalk.bold.gray("PROCESS       "),
+		chalk.bold.gray("PROJECT/DIR       "),
+		chalk.bold.gray("UPTIME"),
 	].join(" ");
 	console.log(header);
 	console.log(chalk.dim("─".repeat(70)));
@@ -364,9 +364,9 @@ async function interactiveMode() {
 	console.log(
 		chalk.bold.cyan("\n  ┌─────────────────────────────────┐\n") +
 			chalk.bold.cyan("  │   🔌  Port Killer CLI            │\n") +
-			chalk.bold.cyan("  │   Feche portas com estilo        │\n") +
+			chalk.bold.cyan("  │   Kill ports with style          │\n") +
 			chalk.bold.cyan("  └─────────────────────────────────┘\n") +
-			chalk.dim("  Pressione ESC para sair a qualquer momento\n"),
+			chalk.dim("  Press ESC to exit anytime\n"),
 	);
 
 	let ports = getListeningPorts();
@@ -375,16 +375,16 @@ async function interactiveMode() {
 		const hidden = ports.filter((p) => Number(p.port) < 1000).length;
 		ports = ports.filter((p) => Number(p.port) >= 1000);
 		if (hidden > 0) {
-			console.log(
-				chalk.dim(
-					`  ${hidden} porta(s) de sistema oculta(s) — use ${chalk.white("pk --all")} pra ver tudo\n`,
-				),
-			);
+		console.log(
+			chalk.dim(
+				`  ${hidden} system port(s) hidden — use ${chalk.white("pk --all")} to see all\n`,
+			),
+		);
 		}
 	}
 
 	if (ports.length === 0) {
-		console.log(chalk.yellow("  Nenhuma porta aberta encontrada."));
+		console.log(chalk.yellow("  No open ports found."));
 		process.exit(0);
 	}
 
@@ -434,18 +434,18 @@ async function interactiveMode() {
 
 	const selected = await checkbox({
 		message:
-			"Selecione as portas pra fechar (↑↓ navega • space seleciona • enter confirma • esc sai)",
+			"Select ports to close (↑↓ navigate • space select • enter confirm • esc exit)",
 		choices,
 		pageSize: 15,
 		loop: false,
 	});
 
 	if (selected.length === 0) {
-		console.log(chalk.yellow("\n  Nenhuma porta selecionada. Flw!\n"));
+		console.log(chalk.yellow("\n  No ports selected. Bye!\n"));
 		process.exit(0);
 	}
 
-	console.log(chalk.bold(`\n  ⚠️  Vai fechar ${selected.length} porta(s):\n`));
+	console.log(chalk.bold(`\n  ⚠️  Going to close ${selected.length} port(s):\n`));
 	for (const p of selected) {
 		const proj = p.project ? chalk.white(` → ${p.project}`) : "";
 		console.log(
@@ -453,10 +453,10 @@ async function interactiveMode() {
 		);
 	}
 
-	const sure = await confirm({ message: "Confirmar?", default: false });
+	const sure = await confirm({ message: "Confirm?", default: false });
 
 	if (!sure) {
-		console.log(chalk.yellow("\n  Cancelado. Nenhuma porta foi fechada.\n"));
+		console.log(chalk.yellow("\n  Cancelled. No ports closed.\n"));
 		process.exit(0);
 	}
 
@@ -471,17 +471,17 @@ async function executeKill(targets) {
 	for (const p of targets) {
 		const result = killEntry(p);
 		if (result) {
-			console.log(`  ${chalk.green("✔")} ${chalk.bold(p.port)} (${p.proto}) fechada`);
+			console.log(`  ${chalk.green("✔")} ${chalk.bold(p.port)} (${p.proto}) closed`);
 			killed++;
 		} else {
-			console.log(`  ${chalk.red("✘")} Falha ao fechar ${chalk.bold(p.port)} (${p.proto})`);
+			console.log(`  ${chalk.red("✘")} Failed to close ${chalk.bold(p.port)} (${p.proto})`);
 			failed++;
 		}
 	}
 
 	console.log(
-		chalk.bold(`\n  ✅ ${killed} fechada(s)`) +
-			(failed ? chalk.red(` | ❌ ${failed} falha(s)`) : "") +
+		chalk.bold(`\n  ✅ ${killed} closed`) +
+			(failed ? chalk.red(` | ❌ ${failed} failed`) : "") +
 			"\n",
 	);
 
@@ -491,8 +491,8 @@ async function executeKill(targets) {
 function printKillSummary(results) {
 	const { killed, failed } = results;
 	console.log(
-		chalk.bold(`\n  ✅ ${killed} fechada(s)`) +
-			(failed ? chalk.red(` | ❌ ${failed} falha(s)`) : "") +
+		chalk.bold(`\n  ✅ ${killed} closed`) +
+			(failed ? chalk.red(` | ❌ ${failed} failed`) : "") +
 			"\n",
 	);
 }
@@ -528,7 +528,7 @@ async function main() {
 		if (flags.json) {
 			console.log(JSON.stringify([]));
 		} else {
-			console.log(chalk.yellow("Nenhuma porta aberta encontrada."));
+			console.log(chalk.yellow("No open ports found."));
 		}
 		process.exit(0);
 	}
@@ -553,30 +553,30 @@ async function main() {
 	if (flags.pid) {
 		const pid = Number(flags.pid);
 		if (!isValidPid(pid)) {
-			console.error(chalk.red(`PID invalido: ${flags.pid}`));
+			console.error(chalk.red(`Invalid PID: ${flags.pid}`));
 			process.exit(1);
 		}
 
 		const match = enriched.find((p) => Number(p.pid) === pid);
 		if (!match) {
-			console.error(chalk.red(`Nenhum processo escutando porta com PID ${pid}`));
+			console.error(chalk.red(`No process listening on port with PID ${pid}`));
 			process.exit(1);
 		}
 
 		if (!flags.yes) {
-			console.log(chalk.bold(`\n  ⚠️  Vai matar PID ${pid} (${match.processName}, porta ${match.port})\n`));
-			const sure = await confirm({ message: "Confirmar?", default: false });
+			console.log(chalk.bold(`\n  ⚠️  Going to kill PID ${pid} (${match.processName}, port ${match.port})\n`));
+			const sure = await confirm({ message: "Confirm?", default: false });
 			if (!sure) {
-				console.log(chalk.yellow("\n  Cancelado.\n"));
+				console.log(chalk.yellow("\n  Cancelled.\n"));
 				process.exit(0);
 			}
 		}
 
 		const ok = killByPid(pid);
 		if (ok) {
-			console.log(chalk.green(`\n  ✔ PID ${pid} morto (porta ${match.port})\n`));
+			console.log(chalk.green(`\n  ✔ PID ${pid} killed (port ${match.port})\n`));
 		} else {
-			console.log(chalk.red(`\n  ✘ Falha ao matar PID ${pid}\n`));
+			console.log(chalk.red(`\n  ✘ Failed to kill PID ${pid}\n`));
 		}
 		process.exit(ok ? 0 : 1);
 	}
@@ -595,22 +595,22 @@ async function main() {
 		}
 
 		if (notFound.length > 0 && targets.length === 0) {
-			console.error(chalk.red(`Nenhuma porta aberta: ${notFound.join(", ")}`));
+			console.error(chalk.red(`No open ports: ${notFound.join(", ")}`));
 			process.exit(1);
 		}
 
 		if (notFound.length > 0) {
-			console.warn(chalk.yellow(`Portas nao encontradas: ${notFound.join(", ")}`));
+			console.warn(chalk.yellow(`Ports not found: ${notFound.join(", ")}`));
 		}
 
 		if (!flags.yes) {
-			console.log(chalk.bold(`\n  ⚠️  Vai fechar ${targets.length} porta(s):\n`));
+			console.log(chalk.bold(`\n  ⚠️  Going to close ${targets.length} port(s):\n`));
 			for (const p of targets) {
 				printPortRow(p);
 			}
-			const sure = await confirm({ message: "Confirmar?", default: false });
+			const sure = await confirm({ message: "Confirm?", default: false });
 			if (!sure) {
-				console.log(chalk.yellow("\n  Cancelado.\n"));
+				console.log(chalk.yellow("\n  Cancelled.\n"));
 				process.exit(0);
 			}
 		}
@@ -632,7 +632,7 @@ async function main() {
 
 main().catch((err) => {
 	if (err.name === "ExitPromptError") {
-		console.log(chalk.yellow("\n\n  Cancelado.\n"));
+		console.log(chalk.yellow("\n\n  Cancelled.\n"));
 		process.exit(0);
 	}
 	console.error(chalk.red(err.message));

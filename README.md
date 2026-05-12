@@ -1,23 +1,23 @@
 # 🔌 Port Killer CLI
 
-CLI para fechar portas de processos no Linux — modo interativo **e** agent-friendly.
+CLI to kill processes listening on ports in Linux — interactive mode **and** agent-friendly.
 
 ## ✨ Features
 
-- 🎯 Interface interativa com checkboxes (multiplas portas)
-- 🎨 Cores e ícones por tipo de processo (Node, Python, Docker, DBs...)
-- 📁 Detecta projetos e diretórios automaticamente
-- ⏱️ Uptime dos processos
-- 🔒 Oculta portas de sistema (< 1000) por padrão
-- 🤖 **Modo Agent**: args direto, JSON output, headless (`-y`)
+- 🎯 Interactive checkbox interface (multi-select)
+- 🎨 Color-coded icons by process type (Node, Python, Docker, DBs...)
+- 📁 Auto-detects projects and directories
+- ⏱️ Process uptime display
+- 🔒 Hides system ports (< 1000) by default
+- 🤖 **Agent Mode**: direct args, JSON output, headless (`-y`)
 
-## 🚀 Instalação
+## 🚀 Installation
 
 ```bash
 npm install -g pk-port
 ```
 
-Ou com `npx`:
+Or with `npx`:
 
 ```bash
 npx pk-port
@@ -29,56 +29,56 @@ npx pk-port
 npm update -g pk-port
 ```
 
-## 💡 Uso
+## 💡 Usage
 
-### Modo Interativo (default)
+### Interactive Mode (default)
 
 ```bash
 pk
 ```
 
-Navegue com ↑↓, selecione com Space, confirme com Enter, saia com ESC.
+Navigate with ↑↓, select with Space, confirm with Enter, exit with ESC.
 
-### Modo Agent (headless)
+### Agent Mode (headless)
 
 ```bash
-pk 3000                # Mata porta 3000 (TCP+UDP)
-pk 3000 8080           # Mata multiplas portas
-pk --pid 1234          # Mata por PID
-pk 3000 --yes          # Mata sem confirmacao
-pk --list              # Lista portas (tabela)
-pk --json              # Lista portas (JSON)
-pk --json --list       # Lista JSON explicito
-pk -a --json           # Lista JSON incluindo portas sistema
+pk 3000                # Kill port 3000 (TCP+UDP)
+pk 3000 8080           # Kill multiple ports
+pk --pid 1234          # Kill by PID
+pk 3000 --yes          # Kill without confirmation
+pk --list              # List ports (table)
+pk --json              # List ports (JSON)
+pk --json --list       # List JSON explicitly
+pk -a --json           # List JSON including system ports
 ```
 
-### Combinacoes comuns para agents
+### Common combinations for agents
 
 ```bash
-# 1. Descobrir o que esta ouvindo
+# 1. Discover what is listening
 pk --json
 
-# 2. Parsear JSON e matar porta especifica
+# 2. Parse JSON and kill specific port
 pk 3000 --yes
 
-# 3. Matar por PID
+# 3. Kill by PID
 pk --pid 12345 --yes
 ```
 
 ## Flags
 
-| Flag | Descrição |
-|------|-----------|
-| `-a, --all` | Mostrar portas de sistema (< 1000) |
-| `-l, --list` | Apenas listar, sem matar |
-| `--json` | Output JSON (machine-readable) |
-| `-y, --yes` | Pular confirmacao (headless/CI) |
-| `--pid <n>` | Matar processo por PID |
-| `-h, --help` | Mostrar ajuda |
+| Flag | Description |
+|------|-------------|
+| `-a, --all` | Show system ports (< 1000) |
+| `-l, --list` | List only, no kill |
+| `--json` | JSON output (machine-readable) |
+| `-y, --yes` | Skip confirmation (headless/CI) |
+| `--pid <n>` | Kill process by PID |
+| `-h, --help` | Show help |
 
 ## JSON Schema
 
-`pk --json` retorna um array de objetos:
+`pk --json` returns an array of objects:
 
 ```json
 [
@@ -95,30 +95,30 @@ pk --pid 12345 --yes
 ]
 ```
 
-| Campo | Tipo | Descrição |
-|-------|------|-----------|
-| `port` | number | Numero da porta |
-| `proto` | string | `TCP` ou `UDP` |
-| `pid` | number | PID do processo |
-| `process` | string\|null | Nome do processo (ex: `node`, `python3`) |
-| `project` | string\|null | Nome do projeto (baseado no diretorio) |
-| `cwd` | string\|null | Diretorio de trabalho do processo |
-| `uptime` | string\|null | Tempo de atividade (formato `hh:mm:ss` ou `dd:hh:mm`) |
-| `command` | string\|null | Comando completo do processo |
+| Field | Type | Description |
+|-------|------|-------------|
+| `port` | number | Port number |
+| `proto` | string | `TCP` or `UDP` |
+| `pid` | number | Process PID |
+| `process` | string\|null | Process name (e.g. `node`, `python3`) |
+| `project` | string\|null | Project name (based on directory) |
+| `cwd` | string\|null | Process working directory |
+| `uptime` | string\|null | Uptime (format `hh:mm:ss` or `dd:hh:mm`) |
+| `command` | string\|null | Full process command |
 
 ## Exit Codes
 
-| Code | Significado |
-|------|-------------|
-| `0` | Sucesso (portas fechadas ou listagem OK) |
-| `1` | Erro (porta nao encontrada, kill falhou) |
+| Code | Meaning |
+|------|---------|
+| `0` | Success (ports closed or listed OK) |
+| `1` | Error (port not found, kill failed) |
 
-## Exemplos de integracao com agent
+## Agent integration examples
 
 ### Agent CLI (bash)
 
 ```bash
-# Listar portas e matar a 3000
+# List ports and kill 3000
 ports=$(pk --json)
 port_3000=$(echo "$ports" | jq '.[] | select(.port==3000)')
 if [ -n "$port_3000" ]; then
@@ -180,12 +180,12 @@ The skill file (`port-killer.md`) is written in English and contains all CLI com
 
 If no directories are found, you will be prompted for a custom path.
 
-## 📋 Requisitos
+## 📋 Requirements
 
-- Linux (comando `ss` disponivel)
+- Linux (`ss` command available)
 - Node.js 18+
-- npm, bun, ou npx
+- npm, bun, or npx
 
-## 📝 Licença
+## 📝 License
 
 MIT © [LeonardoWSR](https://github.com/leonardowsr)
